@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Blox Islands</title>
+  <style>
+    :root {
+      --sea: #21a9d8;
+      --panel: rgba(12, 18, 32, 0.92);
+      --accent: #ffc83d;
+      --green: #55df77;
+      --blue: #62a7ff;
+      --red: #ff5f67;
+      --ink: #f7fbff;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #0d5f91;
+      font-family: Inter, system-ui, -apple-system, Blinkless, Arial, sans-serif;
+      color: var(--ink);
+      user-select: none;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      image-rendering: auto;
+    }
+
+    #ui { position: fixed; inset: 0; pointer-events: none; }
+    .panel {
+      position: absolute;
+      pointer-events: auto;
+      background: var(--panel);
+      border: 2px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
+    }
+
+    #top-left {
+      left: 14px;
+      top: 14px;
+      width: 260px;
+      padding: 12px 14px;
+    }
+
+    #title {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      align-items: center;
+      gap: 8px;
+      margin: 5px 0;
+      font-size: 13px;
+    }
+
+    .bar {
+      height: 13px;
+      overflow: hidden;
+      border-radius: 20px;
+      background: rgba(255,255,255,.12);
+    }
+
+    .fill {
+      height: 100%;
+      width: 100%;
+      transition: width .15s;
+      border-radius: 20px;
+    }
+
+    #hpFill { background: linear-gradient(90deg,#ff4c62,#ff7e68); }
+    #energyFill { background: linear-gradient(90deg,#4ba5ff,#70d5ff); }
+    #xpFill { background: linear-gradient(90deg,#ffc44d,#ffe081); }
+
+    #quest {
+      right: 14px;
+      top: 14px;
+      width: 270px;
+      padding: 12px 14px;
+    }
+
+    #questName { color: #8ff0a7; font-weight: 900; margin: 4px 0 5px; }
+    #questText { font-size: 13px; line-height: 1.35; color: #dce7ef; }
+
+    #shop {
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(560px, calc(100% - 20px));
+      max-height: 80vh;
+      padding: 16px;
+      display: none;
+      overflow: auto;
+    }
+
+    #shop h2 { margin: 0 0 12px; }
+    #shopGrid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .shop-card {
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,.06);
+      text-align: center;
+    }
+
+    .shop-card button, #closeShop {
+      margin-top: 8px;
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      padding: 9px;
+      background: var(--accent);
+      color: #2b2719;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    #crosshair {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      transform: translate(-50%, -50%);
+      border: 2px solid rgba(255,255,255,.9);
+      border-radius: 50%;
+      box-shadow: 0 0 5px #000;
+    }
+
+    #crosshair::before, #crosshair::after {
+      content: "";
+      position: absolute;
+      background: #fff;
+    }
+
+    #crosshair::before { width: 4px; height: 1px; left: 5px; top: 7px; }
+    #crosshair::after { width: 1px; height: 4px; left: 7px; top: 5px; }
+
+    #abilities {
+      position: absolute;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .ability {
+      width: 66px;
+      height: 66px;
+      border: 2px solid rgba(255,255,255,.18);
+      border-radius: 12px;
+      background: rgba(12,18,32,.88);
+      display: grid;
+      place-items: center;
+      position: relative;
+      cursor: pointer;
+      font-weight: 900;
+      box-shadow: 0 5px 15px rgba(0,0,0,.25);
+    }
+
+    .ability span {
+      position: absolute;
+      right: 5px;
+      bottom: 3px;
+      font-size: 12px;
+      color: #ddd;
+    }
+
+    #mobileControls {
+      display: none;
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    #joystick {
+      position: absolute;
+      left: 24px;
+      bottom: 30px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.09);
+      border: 2px solid rgba(255,255,255,.18);
+      pointer-events: auto;
+    }
+
+    #stick {
+      position: absolute;
+      left: 40px;
+      top: 40px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.58);
+    }
+
+    #actionBtn {
+      position: absolute;
+      right: 25px;
+      bottom: 34px;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.25);
+      background: rgba(255,95,103,.75);
+      font-size: 22px;
+      font-weight: 900;
+      pointer-events: auto;
+    }
+
+    #toast {
+      position: absolute;
+      left: 50%;
+      top: 120px;
+      transform: translateX(-50%);
+      background: rgba(12,18,32,.9);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 10px;
+      padding: 10px 16px;
+      opacity: 0;
+      transition: opacity .25s;
+      font-weight: 800;
+    }
+
+    #regionName {
+      position: absolute;
+      left: 50%;
+      top: 28%;
+      transform: translate(-50%, -50%);
+      font-size: clamp(28px, 5vw, 56px);
+      font-weight: 1000;
+      text-shadow: 0 5px 18px rgba(0,0,0,.45);
+      opacity: 0;
+      transition: opacity .8s;
+    }
+
+    @media (max-width: 800px) {
+      #top-left { width: 210px; }
+      #quest { width: 210px; }
+      #abilities { bottom: 125px; }
+      .ability { width: 54px; height: 54px; }
+      #mobileControls { display: block; }
+      #shopGrid { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="ui">
+    <div id="top-left" class="panel">
+      <div id="title">BLOX ISLANDS</div>
+      <div class="stat-row"><b>HP</b><div class="bar"><div id="hpFill" class="fill"></div></div></div>
+      <div class="stat-row"><b>EN</b><div class="bar"><div id="energyFill" class="fill"></div></div></div>
+      <div class="stat-row"><b>LV</b><div class="bar"><div id="xpFill" class="fill"></div></div></div>
+      <div style="font-size:12px;margin-top:7px">
+        Level <b id="level">1</b> · $<b id="beli">500</b> · <b id="fruitName">None</b>
+      </div>
+    </div>
+
+    <div id="quest" class="panel">
+      <div style="font-size:12px;color:#91a8bf">QUEST</div>
+      <div id="questName">Bandit Trouble</div>
+      <div id="questText">Defeat 5 Bandits on Starter Island<br><b id="questCount">0 / 5</b></div>
+    </div>
+
+    <div id="shop" class="panel">
+      <h2 id="shopTitle">Shop</h2>
+      <div id="shopGrid"></div>
+      <button id="closeShop">Close</button>
+    </div>
+
+    <div id="abilities">
+      <div class="ability" data-action="m1">⚔️<span>Z</span></div>
+      <div class="ability" data-action="fruit">🔥<span>X</span></div>
+      <div class="ability" data-action="dash">💨<span>Shift</span></div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="toast"></div>
+    <div id="regionName"></div>
+
+    <div id="mobileControls">
+      <div id="joystick"><div id="stick"></div></div>
+      <button id="actionBtn">HIT</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
