@@ -1,313 +1,380 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Blox Islands</title>
-  <style>
-    :root {
-      --sea: #21a9d8;
-      --panel: rgba(12, 18, 32, 0.92);
-      --accent: #ffc83d;
-      --green: #55df77;
-      --blue: #62a7ff;
-      --red: #ff5f67;
-      --ink: #f7fbff;
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const ui = {
+  hp: document.querySelector("#hpFill"),
+  energy: document.querySelector("#energyFill"),
+  xp: document.querySelector("#xpFill"),
+  level: document.querySelector("#level"),
+  beli: document.querySelector("#beli"),
+  fruit: document.querySelector("#fruitName"),
+  quest: document.querySelector("#questCount")
+};
+
+let width = innerWidth;
+let height = innerHeight;
+
+function resize() {
+  width = innerWidth;
+  height = innerHeight;
+  canvas.width = width * devicePixelRatio;
+  canvas.height = height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+
+resize();
+addEventListener("resize", resize);
+
+const keys = {};
+const islands = [
+  { x: 0, y: 0, rx: 300, ry: 180, name: "Starter Island", color: "#58b94f" },
+  { x: 750, y: -180, rx: 330, ry: 190, name: "Jungle Island", color: "#32954a" },
+  { x: 1500, y: 120, rx: 360, ry: 210, name: "Desert Island", color: "#d5b354" }
+];
+
+const player = {
+  x: 0,
+  y: 0,
+  hp: 100,
+  maxHp: 100,
+  energy: 100,
+  maxEnergy: 100,
+  level: 1,
+  xp: 0,
+  xpNeeded: 100,
+  beli: 500,
+  angle: 0,
+  speed: 4
+};
+
+const enemies = [];
+const npcs = [
+  { x: 130, y: -40, name: "Quest NPC", quest: true },
+  { x: 220, y: 40, name: "Sword Shop", shop: true },
+  { x: 710, y: -250, name: "Jungle Quest", quest: true },
+  { x: 1450, y: 40, name: "Desert Shop", shop: true }
+];
+
+let defeated = 0;
+let shopOpen = false;
+
+for (let i = 0; i < 12; i++) {
+  const island = islands[i % islands.length];
+  enemies.push({
+    x: island.x + (Math.random() - 0.5) * island.rx,
+    y: island.y + (Math.random() - 0.5) * island.ry,
+    hp: 30,
+    maxHp: 30,
+    speed: 0.7 + i * 0.03,
+    alive: true,
+    respawn: 0
+  });
+}
+
+const camera = { x: 0, y: 0 };
+
+addEventListener("keydown", event => {
+  keys[event.key.toLowerCase()] = true;
+
+  if (event.key.toLowerCase() === "z") attack();
+  if (event.key.toLowerCase() === "x") fruitAbility();
+  if (event.key.toLowerCase() === "shift") dash();
+  if (event.key.toLowerCase() === "e") interact();
+});
+
+addEventListener("keyup", event => {
+  keys[event.key.toLowerCase()] = false;
+});
+
+canvas.addEventListener("mousemove", event => {
+  const worldMouseX = event.clientX - width / 2 + camera.x;
+  const worldMouseY = event.clientY - height / 2 + camera.y;
+  player.angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
+});
+
+canvas.addEventListener("mousedown", attack);
+
+function attack() {
+  if (player.energy < 8) return;
+
+  player.energy -= 8;
+
+  enemies.forEach(enemy => {
+    if (!enemy.alive) return;
+
+    const distance = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+
+    if (distance < 75) {
+      enemy.hp -= 20;
+      if (enemy.hp <= 0) {
+        enemy.alive = false;
+        enemy.respawn = 240;
+        defeated++;
+        player.beli += 50;
+        gainXP(40);
+        ui.quest.textContent = `${Math.min(defeated, 5)} / 5`;
+      }
+    }
+  });
+}
+
+function fruitAbility() {
+  if (player.energy < 25) return;
+
+  player.energy -= 25;
+
+  enemies.forEach(enemy => {
+    if (!enemy.alive) return;
+
+    const distance = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+    if (distance < 180) {
+      enemy.hp -= 35;
+      if (enemy.hp <= 0) {
+        enemy.alive = false;
+        enemy.respawn = 240;
+        defeated++;
+        player.beli += 50;
+        gainXP(50);
+      }
+    }
+  });
+}
+
+function dash() {
+  if (player.energy < 12) return;
+
+  player.energy -= 12;
+  player.x += Math.cos(player.angle) * 130;
+  player.y += Math.sin(player.angle) * 130;
+}
+
+function gainXP(amount) {
+  player.xp += amount;
+
+  if (player.xp >= player.xpNeeded) {
+    player.xp -= player.xpNeeded;
+    player.level++;
+    player.xpNeeded = Math.floor(player.xpNeeded * 1.35);
+    player.maxHp += 10;
+    player.maxEnergy += 5;
+  }
+}
+
+function interact() {
+  for (const npc of npcs) {
+    if (Math.hypot(npc.x - player.x, npc.y - player.y) < 90) {
+      if (npc.quest) {
+        alert(`Quest: Defeat 5 enemies. Progress: ${defeated} / 5`);
+      }
+
+      if (npc.shop) {
+        if (player.beli >= 500) {
+          const confirmed = confirm("Buy a sword for 500 coins?");
+          if (confirmed) {
+            player.beli -= 500;
+            alert("Sword purchased!");
+          }
+        } else {
+          alert("You need 500 coins.");
+        }
+      }
+    }
+  }
+}
+
+function islandAt(x, y) {
+  for (const island of islands) {
+    const dx = (x - island.x) / island.rx;
+    const dy = (y - island.y) / island.ry;
+    if (dx * dx + dy * dy < 1) return island;
+  }
+  return null;
+}
+
+function update() {
+  let dx = 0;
+  let dy = 0;
+
+  if (keys.w || keys.arrowup) dy--;
+  if (keys.s || keys.arrowdown) dy++;
+  if (keys.a || keys.arrowleft) dx--;
+  if (keys.d || keys.arrowright) dx++;
+
+  const magnitude = Math.hypot(dx, dy);
+  if (magnitude) {
+    dx /= magnitude;
+    dy /= magnitude;
+    player.x += dx * player.speed;
+    player.y += dy * player.speed;
+  }
+
+  player.energy = Math.min(player.maxEnergy, player.energy + 0.15);
+  player.hp = Math.min(player.maxHp, player.hp + 0.03);
+
+  enemies.forEach(enemy => {
+    if (!enemy.alive) {
+      enemy.respawn--;
+      if (enemy.respawn <= 0) enemy.alive = true;
+      return;
     }
 
-    * { box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-      background: #0d5f91;
-      font-family: Inter, system-ui, -apple-system, Blinkless, Arial, sans-serif;
-      color: var(--ink);
-      user-select: none;
+    const distance = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+
+    if (distance < 220) {
+      const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+      enemy.x += Math.cos(angle) * enemy.speed;
+      enemy.y += Math.sin(angle) * enemy.speed;
     }
 
-    canvas {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      image-rendering: auto;
+    if (distance < 38) {
+      player.hp -= 0.15;
+      if (player.hp <= 0) {
+        player.hp = player.maxHp;
+        player.x = 0;
+        player.y = 0;
+      }
     }
+  });
 
-    #ui { position: fixed; inset: 0; pointer-events: none; }
-    .panel {
-      position: absolute;
-      pointer-events: auto;
-      background: var(--panel);
-      border: 2px solid rgba(255,255,255,.12);
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.28);
-      backdrop-filter: blur(10px);
+  camera.x += (player.x - camera.x) * 0.1;
+  camera.y += (player.y - camera.y) * 0.1;
+
+  ui.hp.style.width = `${player.hp / player.maxHp * 100}%`;
+  ui.energy.style.width = `${player.energy / player.maxEnergy * 100}%`;
+  ui.xp.style.width = `${player.xp / player.xpNeeded * 100}%`;
+  ui.level.textContent = player.level;
+  ui.beli.textContent = player.beli;
+}
+
+function worldToScreen(x, y) {
+  return {
+    x: x - camera.x + width / 2,
+    y: y - camera.y + height / 2
+  };
+}
+
+function drawOcean() {
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, "#58bee0");
+  gradient.addColorStop(1, "#167bb7");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = "rgba(255,255,255,.12)";
+  ctx.lineWidth = 2;
+
+  for (let y = -40; y < height + 40; y += 45) {
+    ctx.beginPath();
+    for (let x = -40; x < width + 40; x += 20) {
+      const waveY = y + Math.sin((x + camera.x) * 0.02) * 5;
+      if (x === -40) ctx.moveTo(x, waveY);
+      else ctx.lineTo(x, waveY);
     }
+    ctx.stroke();
+  }
+}
 
-    #top-left {
-      left: 14px;
-      top: 14px;
-      width: 260px;
-      padding: 12px 14px;
-    }
+function drawIsland(island) {
+  const position = worldToScreen(island.x, island.y);
 
-    #title {
-      font-size: 18px;
-      font-weight: 900;
-      letter-spacing: .5px;
-      margin-bottom: 8px;
-    }
+  ctx.fillStyle = "rgba(0,50,90,.25)";
+  ctx.beginPath();
+  ctx.ellipse(position.x + 8, position.y + 18, island.rx + 20, island.ry + 20, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-    .stat-row {
-      display: grid;
-      grid-template-columns: 42px 1fr;
-      align-items: center;
-      gap: 8px;
-      margin: 5px 0;
-      font-size: 13px;
-    }
+  ctx.fillStyle = "#dbc77a";
+  ctx.beginPath();
+  ctx.ellipse(position.x, position.y, island.rx, island.ry, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-    .bar {
-      height: 13px;
-      overflow: hidden;
-      border-radius: 20px;
-      background: rgba(255,255,255,.12);
-    }
+  ctx.fillStyle = island.color;
+  ctx.beginPath();
+  ctx.ellipse(position.x, position.y, island.rx - 25, island.ry - 20, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-    .fill {
-      height: 100%;
-      width: 100%;
-      transition: width .15s;
-      border-radius: 20px;
-    }
+  ctx.fillStyle = "white";
+  ctx.font = "bold 24px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(island.name, position.x, position.y - island.ry - 25);
+}
 
-    #hpFill { background: linear-gradient(90deg,#ff4c62,#ff7e68); }
-    #energyFill { background: linear-gradient(90deg,#4ba5ff,#70d5ff); }
-    #xpFill { background: linear-gradient(90deg,#ffc44d,#ffe081); }
+function drawTrees(island) {
+  const position = worldToScreen(island.x, island.y);
 
-    #quest {
-      right: 14px;
-      top: 14px;
-      width: 270px;
-      padding: 12px 14px;
-    }
+  for (let i = 0; i < 5; i++) {
+    const angle = i * Math.PI * 2 / 5;
+    const x = position.x + Math.cos(angle) * island.rx * 0.55;
+    const y = position.y + Math.sin(angle) * island.ry * 0.55;
 
-    #questName { color: #8ff0a7; font-weight: 900; margin: 4px 0 5px; }
-    #questText { font-size: 13px; line-height: 1.35; color: #dce7ef; }
+    ctx.fillStyle = "#75492d";
+    ctx.fillRect(x - 5, y - 20, 10, 35);
 
-    #shop {
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: min(560px, calc(100% - 20px));
-      max-height: 80vh;
-      padding: 16px;
-      display: none;
-      overflow: auto;
-    }
+    ctx.fillStyle = "#2e8c40";
+    ctx.beginPath();
+    ctx.arc(x, y - 28, 24, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
 
-    #shop h2 { margin: 0 0 12px; }
-    #shopGrid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
+function drawEntity(entity, type) {
+  const position = worldToScreen(entity.x, entity.y);
 
-    .shop-card {
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 12px;
-      padding: 12px;
-      background: rgba(255,255,255,.06);
-      text-align: center;
-    }
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.beginPath();
+  ctx.ellipse(position.x, position.y + 18, 18, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-    .shop-card button, #closeShop {
-      margin-top: 8px;
-      width: 100%;
-      border: 0;
-      border-radius: 8px;
-      padding: 9px;
-      background: var(--accent);
-      color: #2b2719;
-      font-weight: 900;
-      cursor: pointer;
-    }
+  if (type === "player") {
+    ctx.fillStyle = "#ffd09b";
+  } else if (type === "enemy") {
+    ctx.fillStyle = "#9d5f49";
+  } else {
+    ctx.fillStyle = "#ffd452";
+  }
 
-    #crosshair {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 18px;
-      height: 18px;
-      transform: translate(-50%, -50%);
-      border: 2px solid rgba(255,255,255,.9);
-      border-radius: 50%;
-      box-shadow: 0 0 5px #000;
-    }
+  ctx.beginPath();
+  ctx.arc(position.x, position.y - 8, 14, 0, Math.PI * 2);
+  ctx.fill();
 
-    #crosshair::before, #crosshair::after {
-      content: "";
-      position: absolute;
-      background: #fff;
-    }
+  ctx.fillStyle = type === "enemy" ? "#3b2f28" : "#2b4770";
+  ctx.fillRect(position.x - 10, position.y + 5, 20, 22);
 
-    #crosshair::before { width: 4px; height: 1px; left: 5px; top: 7px; }
-    #crosshair::after { width: 1px; height: 4px; left: 7px; top: 5px; }
+  if (type === "enemy") {
+    ctx.fillStyle = "#ff5252";
+    ctx.fillRect(position.x - 20, position.y - 32, 40, 5);
+    ctx.fillStyle = "#55dc70";
+    ctx.fillRect(position.x - 20, position.y - 32,
+      40 * (entity.hp / entity.maxHp), 5);
+  }
 
-    #abilities {
-      position: absolute;
-      left: 50%;
-      bottom: 20px;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 8px;
-      pointer-events: auto;
-    }
+  if (type === "npc") {
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(entity.name, position.x, position.y - 45);
+  }
+}
 
-    .ability {
-      width: 66px;
-      height: 66px;
-      border: 2px solid rgba(255,255,255,.18);
-      border-radius: 12px;
-      background: rgba(12,18,32,.88);
-      display: grid;
-      place-items: center;
-      position: relative;
-      cursor: pointer;
-      font-weight: 900;
-      box-shadow: 0 5px 15px rgba(0,0,0,.25);
-    }
+function render() {
+  drawOcean();
 
-    .ability span {
-      position: absolute;
-      right: 5px;
-      bottom: 3px;
-      font-size: 12px;
-      color: #ddd;
-    }
+  islands.forEach(island => {
+    drawIsland(island);
+    drawTrees(island);
+  });
 
-    #mobileControls {
-      display: none;
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
+  enemies.forEach(enemy => {
+    if (enemy.alive) drawEntity(enemy, "enemy");
+  });
 
-    #joystick {
-      position: absolute;
-      left: 24px;
-      bottom: 30px;
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      background: rgba(255,255,255,.09);
-      border: 2px solid rgba(255,255,255,.18);
-      pointer-events: auto;
-    }
+  npcs.forEach(npc => drawEntity(npc, "npc"));
+  drawEntity(player, "player");
+}
 
-    #stick {
-      position: absolute;
-      left: 40px;
-      top: 40px;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: rgba(255,255,255,.58);
-    }
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
 
-    #actionBtn {
-      position: absolute;
-      right: 25px;
-      bottom: 34px;
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      border: 2px solid rgba(255,255,255,.25);
-      background: rgba(255,95,103,.75);
-      font-size: 22px;
-      font-weight: 900;
-      pointer-events: auto;
-    }
-
-    #toast {
-      position: absolute;
-      left: 50%;
-      top: 120px;
-      transform: translateX(-50%);
-      background: rgba(12,18,32,.9);
-      border: 1px solid rgba(255,255,255,.14);
-      border-radius: 10px;
-      padding: 10px 16px;
-      opacity: 0;
-      transition: opacity .25s;
-      font-weight: 800;
-    }
-
-    #regionName {
-      position: absolute;
-      left: 50%;
-      top: 28%;
-      transform: translate(-50%, -50%);
-      font-size: clamp(28px, 5vw, 56px);
-      font-weight: 1000;
-      text-shadow: 0 5px 18px rgba(0,0,0,.45);
-      opacity: 0;
-      transition: opacity .8s;
-    }
-
-    @media (max-width: 800px) {
-      #top-left { width: 210px; }
-      #quest { width: 210px; }
-      #abilities { bottom: 125px; }
-      .ability { width: 54px; height: 54px; }
-      #mobileControls { display: block; }
-      #shopGrid { grid-template-columns: repeat(2,1fr); }
-    }
-  </style>
-</head>
-<body>
-  <canvas id="game"></canvas>
-  <div id="ui">
-    <div id="top-left" class="panel">
-      <div id="title">BLOX ISLANDS</div>
-      <div class="stat-row"><b>HP</b><div class="bar"><div id="hpFill" class="fill"></div></div></div>
-      <div class="stat-row"><b>EN</b><div class="bar"><div id="energyFill" class="fill"></div></div></div>
-      <div class="stat-row"><b>LV</b><div class="bar"><div id="xpFill" class="fill"></div></div></div>
-      <div style="font-size:12px;margin-top:7px">
-        Level <b id="level">1</b> · $<b id="beli">500</b> · <b id="fruitName">None</b>
-      </div>
-    </div>
-
-    <div id="quest" class="panel">
-      <div style="font-size:12px;color:#91a8bf">QUEST</div>
-      <div id="questName">Bandit Trouble</div>
-      <div id="questText">Defeat 5 Bandits on Starter Island<br><b id="questCount">0 / 5</b></div>
-    </div>
-
-    <div id="shop" class="panel">
-      <h2 id="shopTitle">Shop</h2>
-      <div id="shopGrid"></div>
-      <button id="closeShop">Close</button>
-    </div>
-
-    <div id="abilities">
-      <div class="ability" data-action="m1">⚔️<span>Z</span></div>
-      <div class="ability" data-action="fruit">🔥<span>X</span></div>
-      <div class="ability" data-action="dash">💨<span>Shift</span></div>
-    </div>
-
-    <div id="crosshair"></div>
-    <div id="toast"></div>
-    <div id="regionName"></div>
-
-    <div id="mobileControls">
-      <div id="joystick"><div id="stick"></div></div>
-      <button id="actionBtn">HIT</button>
-    </div>
-  </div>
-
-  <script src="game.js"></script>
-</body>
-</html>
+loop();
